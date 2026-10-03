@@ -1,0 +1,53 @@
+{
+  "project": "Attacker Container Isolation and Access Control",
+  "timestamp": "2026-10-03T17:58:09.507Z",
+  "attacker": "attacker-1791048868330",
+  "ownTarget": "target-1791048868330",
+  "otherTarget": "target-1791049595567",
+  "totalTests": 8,
+  "passed": 8,
+  "failed": 0,
+  "result": "PASS",
+  "tests": [
+    {
+      "name": "Non-root user",
+      "passed": true,
+      "details": "Configured user: 1001:1001"
+    },
+    {
+      "name": "Read-only root filesystem",
+      "passed": true,
+      "details": "ReadonlyRootfs=true"
+    },
+    {
+      "name": "All unnecessary capabilities dropped",
+      "passed": true,
+      "details": "CapDrop=[\"ALL\"]"
+    },
+    {
+      "name": "Only NET_RAW capability added",
+      "passed": true,
+      "details": "CapAdd=[\"NET_RAW\"]"
+    },
+    {
+      "name": "Runtime package management blocked",
+      "passed": true,
+      "details": "apt-get update was blocked (exit code 100)"
+    },
+    {
+      "name": "Own target reachable",
+      "passed": true,
+      "details": "Attacker successfully reached assigned target"
+    },
+    {
+      "name": "Cross-session target blocked",
+      "passed": true,
+      "details": "Other session target was unreachable"
+    },
+    {
+      "name": "Seccomp security profile attached",
+      "passed": true,
+      "details": "Seccomp profile is attached to attacker container"
+    }
+  ]
+}

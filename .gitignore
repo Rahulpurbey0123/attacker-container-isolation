@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+package-lock.json.bak
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor and IDE directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Temporary and Scratch Files
+*.tmp
+*.temp
+scratch/
+
+# Note: Existing logs (orchestrator/logs/) and verification results
+# (orchestrator/security-tests/results/) are intentional project artifacts
+# and are tracked for demonstration and audit review.

@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Operations Dashboard | Attacker Container Isolation</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts for SOC Industrial Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <!-- GLOBAL ALERT BANNER FOR BACKEND ISSUES -->
+        <div id="system-alert-banner" class="system-alert-banner hidden" role="alert">
+            <span class="alert-icon">⚠️</span>
+            <span id="system-alert-message" class="alert-text">Backend connection unavailable</span>
+        </div>
+
+        <!-- HEADER SECTION -->
+        <header class="soc-header">
+            <div class="header-branding">
+                <div class="header-logo-badge">
+                    <svg class="shield-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="M9 12l2 2 4-4"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="header-title">SECURITY OPERATIONS DASHBOARD</h1>
+                    <p class="header-subtitle">Attacker Container Isolation & Access Control</p>
+                </div>
+            </div>
+
+            <div class="header-telemetry">
+                <div id="connection-status-pill" class="status-pill status-online">
+                    <span class="status-dot"></span>
+                    <span id="connection-status-text">SYSTEM ONLINE</span>
+                </div>
+
+                <div class="update-telemetry">
+                    <span class="telemetry-label">Last Updated:</span>
+                    <span id="last-updated-text" class="telemetry-value">--:--:--</span>
+                </div>
+
+                <button id="btn-manual-refresh" class="btn-refresh" title="Manually refresh dashboard data">
+                    <svg class="refresh-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                    </svg>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- TOP METRICS / STATISTICS CARDS -->
+        <section class="metrics-grid" aria-label="Key Security Metrics">
+            <!-- Active Sessions -->
+            <div class="metric-card card-cyan">
+                <div class="metric-header">
+                    <span class="metric-title">ACTIVE SESSIONS</span>
+                    <span class="metric-icon">💻</span>
+                </div>
+                <div class="metric-value-container">
+                    <span id="metric-active-sessions" class="metric-value">0</span>
+                </div>
+                <div class="metric-footer">Isolated sandboxes running</div>
+            </div>
+
+            <!-- Total Events -->
+            <div class="metric-card card-blue">
+                <div class="metric-header">
+                    <span class="metric-title">TOTAL EVENTS</span>
+                    <span class="metric-icon">📊</span>
+                </div>
+                <div class="metric-value-container">
+                    <span id="metric-total-events" class="metric-value">0</span>
+                </div>
+                <div class="metric-footer">Recorded security telemetry</div>
+            </div>
+
+            <!-- Blocked Events -->
+            <div class="metric-card card-crimson">
+                <div class="metric-header">
+                    <span class="metric-title">BLOCKED EVENTS</span>
+                    <span class="metric-icon">🚫</span>
+                </div>
+                <div class="metric-value-container">
+                    <span id="metric-blocked-events" class="metric-value">0</span>
+                </div>
+                <div class="metric-footer">Enforced access restrictions</div>
+            </div>
+
+            <!-- Allowed Events -->
+            <div class="metric-card card-emerald">
+                <div class="metric-header">
+                    <span class="metric-title">ALLOWED EVENTS</span>
+                    <span class="metric-icon">✅</span>
+                </div>
+                <div class="metric-value-container">
+                    <span id="metric-allowed-events" class="metric-value">0</span>
+                </div>
+                <div class="metric-footer">Permitted authorized operations</div>
+            </div>
+
+            <!-- High Severity -->
+            <div class="metric-card card-amber">
+                <div class="metric-header">
+                    <span class="metric-title">HIGH SEVERITY</span>
+                    <span class="metric-icon">⚠️</span>
+                </div>
+                <div class="metric-value-container">
+                    <span id="metric-high-events" class="metric-value">0</span>
+                </div>
+                <div class="metric-footer">Elevated threat operations</div>
+            </div>
+
+            <!-- Critical Events -->
+            <div class="metric-card card-red-glow">
+                <div class="metric-header">
+                    <span class="metric-title">CRITICAL EVENTS</span>
+                    <span class="metric-icon">🚨</span>
+                </div>
+                <div class="metric-value-container">
+                    <span id="metric-critical-events" class="metric-value">0</span>
+                </div>
+                <div class="metric-footer">Maximum risk policy violations</div>
+            </div>
+        </section>
+
+        <!-- MAIN DUAL-PANEL CONTENT -->
+        <main class="main-dual-panel">
+            <!-- LEFT: SECURITY SEVERITY DISTRIBUTION & EVENT SUMMARY -->
+            <section class="panel-card" aria-label="Security Severity Distribution">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                            <polyline points="2 17 12 22 22 17"/>
+                            <polyline points="2 12 12 17 22 12"/>
+                        </svg>
+                        SECURITY SEVERITY
+                    </h2>
+                    <span id="summary-fetch-status" class="panel-badge-subtle">LIVE TELEMETRY</span>
+                </div>
+
+                <div id="severity-error-box" class="sub-alert-box hidden">
+                    Unable to load security summary.
+                </div>
+
+                <div class="severity-bars-container">
+                    <!-- CRITICAL -->
+                    <div class="severity-item">
+                        <div class="severity-label-row">
+                            <span class="badge badge-critical">CRITICAL</span>
+                            <span id="sev-critical-count" class="severity-count">0</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="sev-critical-bar" class="progress-fill bar-critical" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- HIGH -->
+                    <div class="severity-item">
+                        <div class="severity-label-row">
+                            <span class="badge badge-high">HIGH</span>
+                            <span id="sev-high-count" class="severity-count">0</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="sev-high-bar" class="progress-fill bar-high" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- MEDIUM -->
+                    <div class="severity-item">
+                        <div class="severity-label-row">
+                            <span class="badge badge-medium">MEDIUM</span>
+                            <span id="sev-medium-count" class="severity-count">0</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="sev-medium-bar" class="progress-fill bar-medium" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- LOW -->
+                    <div class="severity-item">
+                        <div class="severity-label-row">
+                            <span class="badge badge-low">LOW</span>
+                            <span id="sev-low-count" class="severity-count">0</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="sev-low-bar" class="progress-fill bar-low" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Event Breakdown Sub-stats -->
+                <div class="event-breakdown-box">
+                    <div class="breakdown-stat">
+                        <span class="breakdown-label">Total Events</span>
+                        <span id="breakdown-total" class="breakdown-value">0</span>
+                    </div>
+                    <div class="breakdown-divider"></div>
+                    <div class="breakdown-stat">
+                        <span class="breakdown-label">Blocked</span>
+                        <span id="breakdown-blocked" class="breakdown-value color-blocked">0</span>
+                    </div>
+                    <div class="breakdown-divider"></div>
+                    <div class="breakdown-stat">
+                        <span class="breakdown-label">Allowed</span>
+                        <span id="breakdown-allowed" class="breakdown-value color-allowed">0</span>
+                    </div>
+                    <div class="breakdown-divider"></div>
+                    <div class="breakdown-stat">
+                        <span class="breakdown-label">Failed</span>
+                        <span id="breakdown-failed" class="breakdown-value color-failed">0</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT: SECURITY CONTROLS (DISPLAY ONLY) -->
+            <section class="panel-card" aria-label="Security Controls Status">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                        SECURITY CONTROLS
+                    </h2>
+                    <span class="panel-badge-status">DISPLAY-ONLY ENFORCEMENT</span>
+                </div>
+
+                <div class="controls-list">
+                    <!-- Control 1 -->
+                    <div class="control-row">
+                        <div class="control-info">
+                            <div class="control-name">Network Isolation</div>
+                            <div class="control-desc">Per-session private bridge network, cross-session egress disabled</div>
+                        </div>
+                        <div class="control-status">
+                            <span class="status-indicator-dot dot-enabled"></span>
+                            <span class="badge badge-control-enabled">ENABLED</span>
+                        </div>
+                    </div>
+
+                    <!-- Control 2 -->
+                    <div class="control-row">
+                        <div class="control-info">
+                            <div class="control-name">Read-only Filesystem</div>
+                            <div class="control-desc">Root filesystem locked with ReadonlyRootfs, tmpfs on /tmp & /run</div>
+                        </div>
+                        <div class="control-status">
+                            <span class="status-indicator-dot dot-enabled"></span>
+                            <span class="badge badge-control-enabled">ENABLED</span>
+                        </div>
+                    </div>
+
+                    <!-- Control 3 -->
+                    <div class="control-row">
+                        <div class="control-info">
+                            <div class="control-name">Capability Restriction</div>
+                            <div class="control-desc">CapDrop: ALL enforced. Non-root user (1001:1001), minimal NET_RAW</div>
+                        </div>
+                        <div class="control-status">
+                            <span class="status-indicator-dot dot-enabled"></span>
+                            <span class="badge badge-control-enabled">ENABLED</span>
+                        </div>
+                    </div>
+
+                    <!-- Control 4 -->
+                    <div class="control-row">
+                        <div class="control-info">
+                            <div class="control-name">Seccomp</div>
+                            <div class="control-desc">Custom syscall filter blocking kernel & privilege escalation exploits</div>
+                        </div>
+                        <div class="control-status">
+                            <span class="status-indicator-dot dot-enabled"></span>
+                            <span class="badge badge-control-enabled">ENABLED</span>
+                        </div>
+                    </div>
+
+                    <!-- Control 5 -->
+                    <div class="control-row">
+                        <div class="control-info">
+                            <div class="control-name">Command Gateway</div>
+                            <div class="control-desc">Regex allowlist filtering, APT/PIP/Git and shell chaining block</div>
+                        </div>
+                        <div class="control-status">
+                            <span class="status-indicator-dot dot-enabled"></span>
+                            <span class="badge badge-control-enabled">ENABLED</span>
+                        </div>
+                    </div>
+
+                    <!-- Control 6 -->
+                    <div class="control-row">
+                        <div class="control-info">
+                            <div class="control-name">Audit Logging</div>
+                            <div class="control-desc">Structured JSON auditing to security-events.log & audit.log</div>
+                        </div>
+                        <div class="control-status">
+                            <span class="status-indicator-dot dot-enabled"></span>
+                            <span class="badge badge-control-enabled">ENABLED</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- STUDENT SESSION MANAGEMENT PANEL -->
+        <section class="panel-card student-session-card" aria-label="Student Session Management">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 17l6-6-6-6M12 19h8"/>
+                        </svg>
+                        STUDENT SESSION MANAGEMENT
+                    </h2>
+                    <span class="panel-badge-subtle">ISOLATED SANDBOX PROVISIONING</span>
+                </div>
+            </div>
+
+            <div class="session-mgmt-content">
+                <div class="session-mgmt-action-bar">
+                    <p class="session-mgmt-description">
+                        Launch an isolated sandbox environment with dedicated attacker and target containers within a private bridge network.
+                    </p>
+                    <button id="btn-create-session" class="btn-create-session" type="button" aria-live="polite">
+                        <span id="btn-create-session-icon" class="btn-create-icon" aria-hidden="true">+</span>
+                        <span id="btn-create-session-text">CREATE NEW SESSION</span>
+                    </button>
+                </div>
+
+                <!-- Error Container -->
+                <div id="session-creation-error" class="sub-alert-box session-error-box hidden" role="alert">
+                    <div class="error-title">SESSION CREATION FAILED</div>
+                    <div id="session-creation-error-msg" class="error-desc">
+                        Unable to create a new isolated session. Please check the backend connection.
+                    </div>
+                </div>
+
+                <!-- Success Container -->
+                <div id="session-creation-success" class="session-success-card hidden" role="region" aria-label="Created Session Details">
+                    <div class="session-success-header">
+                        <div class="success-title-group">
+                            <span class="status-indicator-dot dot-enabled"></span>
+                            <span class="success-badge-title">SESSION CREATED</span>
+                        </div>
+                        <span id="created-session-badge" class="badge badge-allowed">READY</span>
+                    </div>
+
+                    <div class="session-meta-grid">
+                        <div class="session-meta-item">
+                            <span class="meta-label">Session ID:</span>
+                            <span id="created-session-id" class="meta-value">--</span>
+                        </div>
+                        <div class="session-meta-item">
+                            <span class="meta-label">Attacker:</span>
+                            <span id="created-attacker" class="meta-value">--</span>
+                        </div>
+                        <div class="session-meta-item">
+                            <span class="meta-label">Target:</span>
+                            <span id="created-target" class="meta-value">--</span>
+                        </div>
+                        <div class="session-meta-item">
+                            <span class="meta-label">Network:</span>
+                            <span id="created-network" class="meta-value">--</span>
+                        </div>
+                    </div>
+
+                    <div class="terminal-command-container">
+                        <div class="terminal-command-label">
+                            TERMINAL ACCESS COMMAND:
+                        </div>
+                        <div class="terminal-command-box">
+                            <code id="created-terminal-cmd" class="terminal-code">docker exec -it ... bash</code>
+                            <button id="btn-copy-command" class="btn-copy-command" type="button" title="Copy command to clipboard">
+                                <svg class="copy-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                </svg>
+                                <span id="btn-copy-text">COPY TERMINAL COMMAND</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SESSION MONITORING PANEL -->
+        <section class="panel-card session-monitoring-card" aria-label="Session Monitoring">
+            <div class="panel-header">
+                <h2 class="panel-title">
+                    <svg class="panel-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    SESSION MONITORING
+                </h2>
+                <span id="session-count-badge" class="panel-badge-subtle">0 SESSIONS</span>
+            </div>
+
+            <div id="sessions-container" class="sessions-grid">
+                <div class="no-data-notice">No active isolated container sessions currently running.</div>
+            </div>
+        </section>
+
+        <!-- RECENT SECURITY EVENTS TABLE -->
+        <section class="panel-card" aria-label="Recent Security Events">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        RECENT SECURITY EVENTS
+                    </h2>
+                    <span id="events-count-pill" class="events-count-pill">0 Events Displayed</span>
+                </div>
+                <div id="dashboard-error-box" class="sub-alert-box hidden">
+                    Unable to load dashboard data.
+                </div>
+            </div>
+
+            <div class="table-responsive-wrapper">
+                <table class="events-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">TIME</th>
+                            <th scope="col">ACTION</th>
+                            <th scope="col">RESULT</th>
+                            <th scope="col">SEVERITY</th>
+                            <th scope="col">SESSION</th>
+                            <th scope="col">DESCRIPTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="events-table-body">
+                        <tr>
+                            <td colspan="6" class="table-empty-row">
+                                <div class="loading-state">
+                                    <span class="loading-spinner"></span>
+                                    <span>Loading security telemetry...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="soc-footer">
+            <div class="footer-left">
+                <span class="footer-brand">GENESIS-AI Security Lab</span>
+                <span class="footer-dot">•</span>
+                <span class="footer-context">Attacker Container Isolation & Access Control</span>
+            </div>
+            <div class="footer-right">
+                <span id="footer-last-updated">Last Updated: --:--:--</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- MAIN DASHBOARD LOGIC SCRIPT -->
+    <script src="dashboard.js?v=2"></script>
+</body>
+</html>

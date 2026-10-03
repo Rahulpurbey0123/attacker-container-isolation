@@ -1,0 +1,34 @@
+{
+    "defaultAction": "SCMP_ACT_ALLOW",
+
+    "architectures": [
+        "SCMP_ARCH_X86_64"
+    ],
+
+    "syscalls": [
+        {
+            "names": [
+                "mount",
+                "umount",
+                "umount2",
+                "pivot_root",
+                "reboot",
+                "kexec_load",
+                "kexec_file_load",
+                "init_module",
+                "finit_module",
+                "delete_module",
+                "ptrace",
+                "process_vm_readv",
+                "process_vm_writev",
+                "open_by_handle_at",
+                "name_to_handle_at",
+                "swapon",
+                "swapoff",
+                "setns",
+                "unshare"
+            ],
+            "action": "SCMP_ACT_ERRNO"
+        }
+    ]
+}
