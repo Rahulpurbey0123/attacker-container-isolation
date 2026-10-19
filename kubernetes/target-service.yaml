@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: target-demo-session
+  namespace: attacker-lab
+  labels:
+    app: target-nginx
+    session: demo-session
+    role: target
+spec:
+  type: ClusterIP
+  selector:
+    app: target-nginx
+    session: demo-session
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

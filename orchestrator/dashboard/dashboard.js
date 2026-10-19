@@ -223,12 +223,12 @@
         if (Array.isArray(dockerContainers)) {
             dockerContainers.forEach(function (c) {
                 const name = c.name || "";
-                const isRunning = typeof c.status === "string" && c.status.toLowerCase().startsWith("up");
+                const isRunning = typeof c.status === "string" && (c.status.toLowerCase().startsWith("up") || c.status.toLowerCase() === "running");
                 if (name.startsWith("/attacker-")) {
                     const sid = name.replace("/attacker-", "");
                     if (!sessionMap[sid]) sessionMap[sid] = {};
                     sessionMap[sid].attacker = name.replace("/", "");
-                    sessionMap[sid].status = isRunning ? "ACTIVE" : "EXITED";
+                    sessionMap[sid].status = isRunning ? "ACTIVE" : (c.status || "EXITED");
                     sessionMap[sid].rawStatus = c.status || "";
                     sessionMap[sid].running = isRunning;
                 } else if (name.startsWith("/target-")) {
@@ -399,6 +399,12 @@
 
             // Apply Dashboard Data if available
             if (dashboardData) {
+                if (dashboardData.provider) {
+                    const providerPill = document.getElementById("provider-status-text");
+                    if (providerPill) {
+                        providerPill.textContent = "PROVIDER: " + String(dashboardData.provider).toUpperCase();
+                    }
+                }
                 metricActiveSessions.textContent = typeof dashboardData.activeSessions === "number" ? dashboardData.activeSessions : 0;
                 metricTotalEvents.textContent = typeof dashboardData.totalEvents === "number" ? dashboardData.totalEvents : 0;
                 metricBlockedEvents.textContent = typeof dashboardData.blockedEvents === "number" ? dashboardData.blockedEvents : 0;
@@ -407,7 +413,8 @@
                 metricCriticalEvents.textContent = typeof dashboardData.criticalEvents === "number" ? dashboardData.criticalEvents : 0;
 
                 renderEventsTable(dashboardData.recentEvents);
-                renderSessions(dashboardData.activeSessions, dockerData ? dockerData.containers : null);
+                const containerList = (dashboardData.containers && dashboardData.containers.length) ? dashboardData.containers : (dockerData ? dockerData.containers : null);
+                renderSessions(dashboardData.activeSessions, containerList);
             }
 
             // Apply Summary Data if available

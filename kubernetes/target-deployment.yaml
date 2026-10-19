@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: target-demo-session
+  namespace: attacker-lab
+  labels:
+    app: target-nginx
+    session: demo-session
+    role: target
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: target-nginx
+      session: demo-session
+  template:
+    metadata:
+      labels:
+        app: target-nginx
+        session: demo-session
+        role: target
+        tier: backend
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: target
+          image: nginx:alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - SETUID
+                - SETGID
+                - NET_BIND_SERVICE
+                - DAC_OVERRIDE
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+      terminationGracePeriodSeconds: 5

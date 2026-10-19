@@ -1,15 +1,23 @@
 {
   "name": "orchestrator",
   "version": "1.0.0",
-  "description": "",
+  "description": "Attacker container isolation and access control orchestrator",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "test": "npm run test:syntax && npm run test:api && npm run test:k8s",
+    "test:syntax": "node -c index.js logger.js security-monitor.js providers/*.js security/*.js security-tests/*.js",
+    "test:api": "node security-tests/test-backend-api.js",
+    "test:k8s": "node security-tests/verify-kubernetes-security.js",
+    "test:docker": "node security-tests/run-docker-tests.js",
+    "test:docker:manual": "node security-tests/verify-security.js",
+    "generate-sa-kubeconfig": "node scripts/generate-sa-kubeconfig.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@kubernetes/client-node": "^2.0.0",
     "dockerode": "^5.0.1",
     "express": "^5.2.1"
   }

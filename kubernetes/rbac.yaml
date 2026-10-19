@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: attacker-orchestrator-sa
+  namespace: attacker-lab
+  labels:
+    app.kubernetes.io/name: attacker-orchestrator
+    app.kubernetes.io/part-of: attacker-container-isolation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: attacker-orchestrator-role
+  namespace: attacker-lab
+  labels:
+    app.kubernetes.io/name: attacker-orchestrator
+    app.kubernetes.io/part-of: attacker-container-isolation
+rules:
+  # Pods, Pod Exec, Services
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+  # Pod Exec subresource
+  - apiGroups: [""]
+    resources:
+      - pods/exec
+    verbs:
+      - create
+      - get
+  # Target Deployments
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+  # NetworkPolicies for isolation
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - networkpolicies
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: attacker-orchestrator-binding
+  namespace: attacker-lab
+  labels:
+    app.kubernetes.io/name: attacker-orchestrator
+    app.kubernetes.io/part-of: attacker-container-isolation
+subjects:
+  - kind: ServiceAccount
+    name: attacker-orchestrator-sa
+    namespace: attacker-lab
+roleRef:
+  kind: Role
+  name: attacker-orchestrator-role
+  apiGroup: rbac.authorization.k8s.io

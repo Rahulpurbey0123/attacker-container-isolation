@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: attacker-lab
+  labels:
+    app.kubernetes.io/name: attacker-lab
+    app.kubernetes.io/part-of: attacker-container-isolation
+    environment: laboratory
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

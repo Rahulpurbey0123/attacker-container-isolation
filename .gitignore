@@ -17,8 +17,27 @@ desktop.ini
 # Temporary and Scratch Files
 *.tmp
 *.temp
+*.bak
 scratch/
 
-# Note: Existing logs (orchestrator/logs/) and verification results
-# (orchestrator/security-tests/results/) are intentional project artifacts
-# and are tracked for demonstration and audit review.
+# Generated least-privilege kubeconfig with temporary service account tokens
+kubernetes/orchestrator-kubeconfig.yaml
+*kubeconfig*.yaml
+*.env*
+*.key
+*.pem
+*.token
+
+
+# Runtime logs - keep local, do not publish
+orchestrator/logs/*.log
+
+# Keep verification reports as project artifacts
+!orchestrator/security-tests/results/security-report.json
+!orchestrator/security-tests/results/kubernetes-security-report.json
+
+# Local backup and draft files
+README.before-security-fix.md
+*.before-*
+# Temporary session-specific patches
+networkpolicy-patch.json

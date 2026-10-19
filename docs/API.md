@@ -1,12 +1,20 @@
 # Orchestrator REST API Specification
 
-This document provides complete documentation for the HTTP endpoints exposed by the Node.js / Express orchestrator service in `orchestrator/index.js` on port `3000`.
+This document provides complete documentation for the HTTP endpoints exposed by the Node.js / Express orchestrator service in `orchestrator/index.js` on port `3000` (bound to `127.0.0.1`).
+
+> [!IMPORTANT]
+> **LOCAL DEMONSTRATION ONLY — SECURITY ARCHITECTURE NOTICE**
+> The Express orchestrator service is explicitly bound to `127.0.0.1` (`HOST = process.env.HOST || "127.0.0.1"`). All API endpoints currently operate without authentication or per-user access control.
+> **Deployment Limitation**: This unauthenticated design is intended solely for local educational and laboratory demonstration. Before deploying to untrusted networks or multi-user environments, a security gateway MUST be added providing:
+> 1. Authentication (e.g., JWT Bearer tokens, mTLS, or OAuth2/OIDC).
+> 2. Per-session authorization (ensuring that a student/caller can only inspect, execute commands within, or delete their own assigned `sessionId`).
+> 3. Rate limiting and ingress filtering.
 
 ---
 
 ## Base URL
 ```text
-http://localhost:3000
+http://127.0.0.1:3000
 ```
 
 ---
@@ -14,7 +22,7 @@ http://localhost:3000
 ## 1. System Health & Infrastructure
 
 ### `GET /`
-Returns the status and version of the orchestrator service.
+Returns the status, version, active orchestration provider, and binding configuration.
 
 * **Method**: `GET`
 * **URL**: `/`
@@ -23,7 +31,10 @@ Returns the status and version of the orchestrator service.
 {
   "project": "Attacker Container Isolation and Access Control",
   "status": "Orchestrator is running",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "orchestratorProvider": "kubernetes",
+  "boundHost": "127.0.0.1",
+  "securityNotice": "Local-demo-only. Unauthenticated API must not be exposed to untrusted networks."
 }
 ```
 
@@ -40,23 +51,42 @@ Checks connectivity with the local Docker daemon and lists currently recognized 
   "docker": "connected",
   "containers": [
     {
-      "name": "/attacker-1791048868330",
+      "name": "/attacker-s1792303072725",
       "image": "secure-attacker:1.0",
       "status": "Up 5 minutes"
     },
     {
-      "name": "/target-1791048868330",
+      "name": "/target-s1792303072725",
       "image": "nginx:alpine",
       "status": "Up 5 minutes"
     }
   ]
 }
 ```
-* **Response `500 Internal Server Error`**:
+
+---
+
+### `GET /k8s`
+Checks connectivity with the Kubernetes API server, verifying context and least-privilege identity.
+
+* **Method**: `GET`
+* **URL**: `/k8s`
+* **Response `200 OK`**:
 ```json
 {
-  "docker": "connection failed",
-  "error": "connect ENOENT //./pipe/docker_engine"
+  "status": "connected",
+  "provider": "kubernetes",
+  "context": "attacker-orchestrator-context",
+  "namespace": "attacker-lab",
+  "effectiveUser": "attacker-orchestrator-sa",
+  "isLeastPrivilege": true,
+  "containers": [
+    {
+      "name": "/attacker-demo-session",
+      "image": "secure-attacker:1.0",
+      "status": "Running"
+    }
+  ]
 }
 ```
 
@@ -64,68 +94,90 @@ Checks connectivity with the local Docker daemon and lists currently recognized 
 
 ## 2. Session Lifecycle Management
 
+### Session ID Validation Rules
+All session endpoints validate the `sessionId` path/body parameter against Kubernetes DNS-1123 label standards:
+* Must consist of lowercase alphanumeric characters (`a-z`, `0-9`) or hyphens (`-`).
+* Must start and end with an alphanumeric character.
+* Must be between 1 and 50 characters in length.
+* Uppercase characters, underscores, directory traversal sequences, or shell metacharacters are strictly rejected with `400 Bad Request`.
+
+---
+
 ### `POST /sessions`
-Provisions an isolated student laboratory session. Creates a private internal bridge network (`session-<id>-net`), a hardened attacker container (`attacker-<id>`), and an Nginx target container (`target-<id>`).
+Provisions an isolated student laboratory session via the active provider (Docker or Kubernetes).
+* Under Docker: Creates a private internal bridge network (`session-<id>-net`), a hardened attacker container (`attacker-<id>`), and an Nginx target container (`target-<id>`).
+* Under Kubernetes: Deploys target deployment and ClusterIP service, attacker pod, and dual bidirectional NetworkPolicies.
 
 * **Method**: `POST`
 * **URL**: `/sessions`
 * **Headers**: `Content-Type: application/json`
-* **Request Body**: `{}` *(no body parameters required; session ID is generated using server epoch timestamp)*
+* **Request Body** (optional):
+```json
+{
+  "sessionId": "demo-session-42"
+}
+```
+*(If omitted, a valid DNS-1123 session ID in format `s<timestamp>` is automatically generated).*
+
 * **Response `201 Created`**:
 ```json
 {
   "message": "Isolated session created successfully",
-  "sessionId": "1791048868330",
-  "network": "session-1791048868330-net",
-  "attacker": "attacker-1791048868330",
-  "target": "target-1791048868330"
+  "sessionId": "s1792303072725",
+  "provider": "kubernetes",
+  "network": "k8s-cni-networkpolicy",
+  "attacker": "attacker-s1792303072725",
+  "target": "target-s1792303072725"
 }
 ```
-* **Response `500 Internal Server Error`**:
+
+* **Response `400 Bad Request`** (Invalid session ID format):
 ```json
 {
-  "message": "Failed to create isolated session",
-  "error": "..."
+  "message": "Invalid session ID format. Must be Kubernetes DNS-1123 compatible (lowercase alphanumeric and hyphens, 1-50 characters).",
+  "sessionId": "INVALID_UPPERCASE"
 }
 ```
 
 ---
 
 ### `GET /sessions/:sessionId`
-Inspects the runtime state and container status of an existing session.
+Retrieves the runtime status of an isolated session.
 
 * **Method**: `GET`
 * **URL**: `/sessions/:sessionId`
 * **Response `200 OK`**:
 ```json
 {
-  "sessionId": "1791048868330",
+  "sessionId": "s1792303072725",
+  "provider": "kubernetes",
   "attacker": {
-    "name": "attacker-1791048868330",
-    "status": "running",
+    "name": "attacker-s1792303072725",
+    "status": "Running",
     "running": true
   },
   "target": {
-    "name": "target-1791048868330",
+    "name": "target-s1792303072725",
     "status": "running",
     "running": true
   },
-  "network": "session-1791048868330-net"
+  "network": "k8s-cni-networkpolicy"
 }
 ```
+
 * **Response `404 Not Found`**:
 ```json
 {
   "message": "Session not found",
-  "sessionId": "1791048868330",
-  "error": "..."
+  "sessionId": "s1792303072725",
+  "error": "Session not found"
 }
 ```
 
 ---
 
 ### `DELETE /sessions/:sessionId`
-Tears down and deletes an isolated session, removing the attacker container, target container, and the session's internal bridge network.
+Safely destroys a laboratory session. Verifies resource ownership labels before deletion, only ignores confirmed 404 errors, and confirms owned resources are deleted before reporting success.
 
 * **Method**: `DELETE`
 * **URL**: `/sessions/:sessionId`
@@ -133,14 +185,8 @@ Tears down and deletes an isolated session, removing the attacker container, tar
 ```json
 {
   "message": "Session deleted successfully",
-  "sessionId": "1791048868330"
-}
-```
-* **Response `500 Internal Server Error`**:
-```json
-{
-  "message": "Failed to delete session",
-  "error": "..."
+  "sessionId": "s1792303072725",
+  "provider": "kubernetes"
 }
 ```
 
@@ -149,7 +195,14 @@ Tears down and deletes an isolated session, removing the attacker container, tar
 ## 3. Secure Command Execution Gateway
 
 ### `POST /sessions/:sessionId/execute`
-Executes an approved, single command inside the session's hardened attacker container. Checks the command against strict blocked command patterns (APT, PIP, Git) and shell chaining rules before verifying against an allowlist of permitted commands.
+Executes an approved, single-line command inside the student's isolated attacker container.
+
+#### Execution Controls & Limits:
+1. **Command Allowlist**: Only pre-approved administrative/diagnostic utilities are permitted (`id`, `whoami`, `pwd`, `ls`, `cat`, `getent hosts`, `ping`, `curl`).
+2. **Prohibited Tools**: Package management (`apt`, `apt-get`, `pip`) and repository cloning (`git clone`) are blocked (`403 Forbidden`).
+3. **Shell Chaining & Metacharacter Blocking**: Operators `;`, `&&`, `||`, `|`, `` ` ``, `$()`, `>`, `<` are blocked (`403 Forbidden`).
+4. **Execution Timeout**: Commands have a strict execution timeout (default 10 seconds). Exceeding this limit terminates streams and returns `408 Request Timeout`.
+5. **Output Limit**: Output is capped at 64KB (65,536 bytes). Excess output is safely truncated without buffering exhaustion.
 
 * **Method**: `POST`
 * **URL**: `/sessions/:sessionId/execute`
@@ -161,104 +214,66 @@ Executes an approved, single command inside the session's hardened attacker cont
 }
 ```
 
-#### Gateway Allowlist:
-* `id`
-* `whoami`
-* `pwd`
-* `ls [path]`
-* `cat <file>`
-* `getent hosts <hostname>`
-* `ping [-c N] <hostname>`
-* `curl [--connect-timeout N] http(s)://<url>`
-
-#### Gateway Blocked Patterns:
-* Package management: `apt`, `apt-get`, `pip`, `pip3`
-* Repository downloads: `git clone`
-* Shell operators / chaining: `;`, `&&`, `||`, `|`, `` ` ``, `$()`, `>`, `<`
-
-#### Responses:
-* **Response `200 OK` (Command Permitted & Executed)**:
+* **Response `200 OK`** (Approved Command):
 ```json
 {
   "message": "Command executed",
+  "provider": "kubernetes",
   "result": "SUCCESS",
   "exitCode": 0,
   "output": "uid=1001(student) gid=1001(student) groups=1001(student)\n"
 }
 ```
-* **Response `403 Forbidden` (Command Blocked by Policy)**:
+
+* **Response `403 Forbidden`** (Blocked Package Management):
 ```json
 {
-  "message": "Command blocked by security policy",
+  "message": "Runtime APT package-management command blocked",
   "action": "APT_COMMAND",
   "result": "BLOCKED",
   "severity": "HIGH",
-  "eventId": "f7d38392-8072-4638-aa03-5d55e0984183"
+  "eventId": "f7a3f4b5-6831-4830-b995-1f9e1e2474f8"
 }
 ```
-* **Response `403 Forbidden` (Command Not in Allowlist)**:
+
+* **Response `403 Forbidden`** (Blocked Shell Chaining):
 ```json
 {
-  "message": "Command is not allowed",
-  "action": "COMMAND_NOT_ALLOWED",
+  "message": "Shell operator (SEMICOLON) blocked by security policy",
+  "action": "SHELL_COMMAND_CHAINING",
   "result": "BLOCKED",
-  "severity": "MEDIUM",
-  "eventId": "b968a303-dc30-4e34-9278-dfb234479cb2"
-}
-```
-* **Response `400 Bad Request`**:
-```json
-{
-  "message": "command is required"
-}
-```
-* **Response `404 Not Found`**:
-```json
-{
-  "message": "Session not found",
-  "sessionId": "...",
-  "error": "..."
-}
-```
-* **Response `409 Conflict`**:
-```json
-{
-  "message": "Attacker container is not running",
-  "sessionId": "..."
+  "severity": "HIGH",
+  "eventId": "1bb3dc75-9c97-4001-ba84-c6f37ee0bf10"
 }
 ```
 
 ---
 
-## 4. Security Telemetry & Event Ingestion
+## 4. Security Events & Audit Logging
 
 ### `POST /sessions/:sessionId/events`
-Records a structured security event into `orchestrator/logs/security-events.log` and `orchestrator/logs/audit.log`.
+Records an audit/security event in structured JSONL log files.
 
 * **Method**: `POST`
 * **URL**: `/sessions/:sessionId/events`
-* **Headers**: `Content-Type: application/json`
 * **Request Body**:
 ```json
 {
-  "action": "PORT_SCAN",
+  "action": "PORT_SCAN_ATTEMPT",
   "result": "BLOCKED",
   "severity": "HIGH",
-  "description": "Port scan against unauthorized subnet blocked"
+  "description": "Unauthorized scan attempt blocked"
 }
 ```
-* **Validation Rules**:
-  * `action`: Required string, 2 to 100 characters.
-  * `result`: Required string, one of `["BLOCKED", "ALLOWED", "FAILED", "SUCCESS"]`.
-  * `severity`: Optional string (defaults to `MEDIUM`), one of `["LOW", "MEDIUM", "HIGH", "CRITICAL"]`.
+
 * **Response `201 Created`**:
 ```json
 {
   "message": "Security event recorded successfully",
   "event": "SECURITY_EVENT",
-  "eventId": "7a353fe2-3d84-4861-a59e-1dc63c29994c",
-  "sessionId": "1791048868330",
-  "action": "PORT_SCAN",
+  "eventId": "2cb1db0e-9477-44ae-b8df-35b8095b2257",
+  "sessionId": "s1792303072725",
+  "action": "PORT_SCAN_ATTEMPT",
   "result": "BLOCKED",
   "severity": "HIGH"
 }
@@ -266,105 +281,10 @@ Records a structured security event into `orchestrator/logs/security-events.log`
 
 ---
 
-### `GET /security-summary`
-Aggregates security event counts categorized by result (`BLOCKED`, `ALLOWED`, `FAILED`, `SUCCESS`) and severity (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
-
-* **Method**: `GET`
-* **URL**: `/security-summary`
-* **Response `200 OK`**:
-```json
-{
-  "totalEvents": 14,
-  "blockedEvents": 13,
-  "allowedEvents": 1,
-  "failedEvents": 0,
-  "successfulEvents": 0,
-  "severity": {
-    "LOW": 1,
-    "MEDIUM": 2,
-    "HIGH": 10,
-    "CRITICAL": 1
-  }
-}
-```
-
----
-
-### `GET /security-report`
-Provides a full audit trail report of all logged security events.
-
-* **Method**: `GET`
-* **URL**: `/security-report`
-* **Response `200 OK`**:
-```json
-{
-  "reportGeneratedAt": "2026-10-03T18:00:00.000Z",
-  "summary": {
-    "totalEvents": 14,
-    "blockedEvents": 13,
-    "allowedEvents": 1,
-    "failedEvents": 0,
-    "successfulEvents": 0,
-    "severity": {
-      "LOW": 1,
-      "MEDIUM": 2,
-      "HIGH": 10,
-      "CRITICAL": 1
-    }
-  },
-  "events": [
-    {
-      "timestamp": "2026-10-03T08:12:44.648Z",
-      "eventId": "b23ce7d5-3267-4857-818b-ac5f61833b2b",
-      "sessionId": "1791014236793",
-      "attacker": "attacker-1791014236793",
-      "action": "SHELL_COMMAND_CHAINING",
-      "result": "BLOCKED",
-      "severity": "HIGH",
-      "description": "Shell chaining or redirection pattern blocked"
-    }
-  ]
-}
-```
+### `GET /security-summary` & `GET /security-report`
+Provides summary metrics and structured audit records of all blocked, allowed, and recorded security events.
 
 ---
 
 ### `GET /dashboard`
-Aggregated telemetry feed consumed by the frontend web dashboard, including active container counts and the 10 most recent security events.
-
-* **Method**: `GET`
-* **URL**: `/dashboard`
-* **Response `200 OK`**:
-```json
-{
-  "dashboard": "SECURITY DASHBOARD",
-  "activeSessions": 1,
-  "totalEvents": 14,
-  "blockedEvents": 13,
-  "allowedEvents": 1,
-  "failedEvents": 0,
-  "criticalEvents": 1,
-  "highEvents": 10,
-  "recentEvents": [
-    {
-      "timestamp": "2026-10-03T08:12:44.648Z",
-      "action": "SHELL_COMMAND_CHAINING",
-      "result": "BLOCKED",
-      "severity": "HIGH",
-      "sessionId": "1791014236793",
-      "description": "Shell chaining or redirection pattern blocked"
-    }
-  ]
-}
-```
-
----
-
-## 5. Web Dashboard Static Route
-
-### `GET /dashboard-ui/`
-Serves the static frontend Security Operations Center (SOC) dashboard from `orchestrator/dashboard/`.
-
-* **Method**: `GET`
-* **URL**: `/dashboard-ui/`
-* **Response `200 OK`**: `text/html`
+Provides consolidated telemetry for the Web SOC Dashboard, combining active session counts, container statuses, and the 10 most recent security events.

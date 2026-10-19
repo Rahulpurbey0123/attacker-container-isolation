@@ -1,0 +1,131 @@
+{
+  "project": "Attacker Container Isolation and Access Control (Kubernetes Orchestration Layer)",
+  "orchestrationLayer": "kubernetes",
+  "kubernetesVersion": "1.36.1",
+  "clusterContext": "attacker-orchestrator-context",
+  "node": "desktop-control-plane",
+  "namespace": "attacker-lab",
+  "timestamp": "2026-10-19T19:28:33.603Z",
+  "attackerWorkload": "attacker-demo-session",
+  "targetWorkload": "target-demo-session",
+  "totalTests": 16,
+  "passed": 16,
+  "failed": 0,
+  "blocked": 0,
+  "skipped": 0,
+  "result": "PASS",
+  "tests": [
+    {
+      "name": "Kubernetes cluster connectivity and RBAC identity",
+      "expected": "Connected to cluster with valid namespace permissions",
+      "actual": "Connected (Context: attacker-orchestrator-context, User: attacker-orchestrator-sa)",
+      "status": "PASS",
+      "details": "Least-privilege RBAC active: cluster node access correctly forbidden; namespace-scoped operations active"
+    },
+    {
+      "name": "Namespace and workload deployment",
+      "expected": "Pod attacker-demo-session deployed and Running in attacker-lab",
+      "actual": "Phase: Running",
+      "status": "PASS",
+      "details": "Pod UID: 05cf71bf-78c7-4e9f-99dc-de0a0da24325"
+    },
+    {
+      "name": "Attacker image availability",
+      "expected": "secure-attacker:1.0 present and running",
+      "actual": "Configured container image: secure-attacker:1.0",
+      "status": "PASS",
+      "details": "PullPolicy: Never"
+    },
+    {
+      "name": "Attacker runs as non-root user",
+      "expected": "runAsUser=1001, runAsNonRoot=true, live uid=1001(student)",
+      "actual": "Spec: runAsUser=1001, runAsNonRoot=true; Live: uid=1001(student) gid=1001(student) groups=1001(student)",
+      "status": "PASS",
+      "details": "Root privilege execution prevented"
+    },
+    {
+      "name": "Read-only root filesystem",
+      "expected": "readOnlyRootFilesystem: true and write attempts rejected",
+      "actual": "Spec: readOnlyRootFilesystem=true; Output: touch: cannot touch '/test': Read-only file system",
+      "status": "PASS",
+      "details": "Filesystem write operations to rootfs are blocked"
+    },
+    {
+      "name": "No privilege escalation permitted",
+      "expected": "allowPrivilegeEscalation: false (strictly false) and kernel NoNewPrivs: 1",
+      "actual": "Container spec allowPrivilegeEscalation=false, Kernel NoNewPrivs:\t1",
+      "status": "PASS",
+      "details": "Processes cannot acquire new privileges through setuid/setgid"
+    },
+    {
+      "name": "Linux capabilities restricted as intended",
+      "expected": "Drop ALL capabilities, no dangerous administrative capabilities permitted",
+      "actual": "CapDrop: [\"ALL\"], CapAdd: undefined",
+      "status": "PASS",
+      "details": "All Linux capabilities dropped (NET_RAW removed to strictly satisfy Pod Security Standards Baseline)"
+    },
+    {
+      "name": "Seccomp security profile attached and enforced",
+      "expected": "seccompProfile configured with RuntimeDefault; Kernel reports Seccomp: 2 (filtering mode)",
+      "actual": "Spec: RuntimeDefault; Kernel: Seccomp:\t2\nSeccomp_filters:\t2",
+      "status": "PASS",
+      "details": "Kubernetes RuntimeDefault profile enforced at kernel syscall boundary (distinct from custom Docker JSON profile)"
+    },
+    {
+      "name": "Assigned attacker can reach target",
+      "expected": "HTTP 200 Welcome to nginx from assigned session target",
+      "actual": "Target successfully reached",
+      "status": "PASS",
+      "details": "Target endpoint: http://target-demo-session (establishes networking positive control)"
+    },
+    {
+      "name": "Cross-session target access blocked",
+      "expected": "Traffic to other-session target blocked by NetworkPolicy while probe workload is Ready",
+      "actual": "Traffic to 10.244.0.41 rejected/timed out (exit code 28) by NetworkPolicy while probe was confirmed Ready",
+      "status": "PASS",
+      "details": "Multi-tenant session isolation verified with positive controls"
+    },
+    {
+      "name": "Unapproved external egress blocked",
+      "expected": "External internet egress blocked (1.1.1.1:80 unreachable by NetworkPolicy)",
+      "actual": "External egress to 1.1.1.1 blocked by NetworkPolicy (exit code 28)",
+      "status": "PASS",
+      "details": "Data exfiltration prevention policy active; verified tool availability"
+    },
+    {
+      "name": "Runtime package management blocked",
+      "expected": "apt-get update blocked with non-zero exit code",
+      "actual": "apt-get update was blocked (exit code 100)",
+      "status": "PASS",
+      "details": "Package installation prevented by read-only rootfs"
+    },
+    {
+      "name": "Command gateway blocks prohibited commands",
+      "expected": "Shared validator blocks APT, PIP, Git clone, shell operators, and invalid session IDs",
+      "actual": "Apt: true, Pip: true, Chaining: true, AllowedId: true, SessionValid: true",
+      "status": "PASS",
+      "details": "Shared security validator module verified without regex duplication"
+    },
+    {
+      "name": "Audit logging records operations and security events",
+      "expected": "New valid JSONL audit and security events verified for test action",
+      "actual": "Audit eventId: e06fff9c..., Security eventId: bb6fb4e1... (both verified valid JSONL)",
+      "status": "PASS",
+      "details": "Verified structured JSONL format, timestamps, and unique UUID eventIds"
+    },
+    {
+      "name": "Session cleanup removes only session-owned resources",
+      "expected": "Targeted session deleted cleanly while other sessions remain unaffected",
+      "actual": "Ephemeral session cleanly provisioned and deleted; verified ownership labels and preserved unrelated pods",
+      "status": "PASS",
+      "details": "Resource ownership boundaries respected during teardown"
+    },
+    {
+      "name": "Dashboard reflects Kubernetes workload status",
+      "expected": "Active sessions and container lists accurately reported for Kubernetes",
+      "actual": "Active sessions: 8, Containers queried: 16",
+      "status": "PASS",
+      "details": "Kubernetes telemetry pipeline functional"
+    }
+  ]
+}
